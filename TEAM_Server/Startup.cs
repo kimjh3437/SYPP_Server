@@ -10,6 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TEAM_Server.Configurations;
+using TEAM_Server.Services.Interface;
+using TEAM_Server.Services.Service;
 
 namespace TEAM_Server
 {
@@ -26,7 +29,21 @@ namespace TEAM_Server
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+
+
+
+            //Dependency 
+            services.Configure<MongoDBSettings>(
+               Configuration.GetSection("MongoDBSettings"));
+
+
+
+            //Below are for service injection
+            services.AddSingleton<IOutputService, OutputService>();
         }
+
+
+
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
