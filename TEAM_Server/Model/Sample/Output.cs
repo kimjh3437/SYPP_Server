@@ -7,11 +7,11 @@ namespace TEAM_Server.Model.Sample
 {
     public class Output
     {
-        public string email { get; set; }
+        public string companyName  { get; set; }
 
-        public string password { get; set; }
+        public string positionName{ get; set; }
 
-        public string name { get; set; }
+       // public string name { get; set; }
 
     }
 }

@@ -28,6 +28,7 @@ namespace TEAM_Server.Controllers
         [HttpPost("insert")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<Boolean>> Insert([FromBody] Output model )
         {
             Output output = new Output();
@@ -36,7 +37,7 @@ namespace TEAM_Server.Controllers
                 return Ok(model);
             else
             {
-                return BadRequest();
+                return NotFound();
             }
            
         }

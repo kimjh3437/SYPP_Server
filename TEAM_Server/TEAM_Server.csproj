@@ -2,12 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UserSecretsId>5f0fc938-b25a-4c0d-880d-8604057038dd</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MongoDB.Bson" Version="2.11.2" />
     <PackageReference Include="MongoDB.Driver" Version="2.11.2" />
   </ItemGroup>
-
-
 </Project>
