@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 
 namespace TEAM_Server.Model.DB.Category
 {
-    public class Category
+    public class Preference
     {
         public string Type { get; set; }
-        public List<string> SuggestionsOrSeleceted { get; set; }
+        public string Title { get; set; }
     }
 }

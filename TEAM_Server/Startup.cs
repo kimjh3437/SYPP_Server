@@ -41,6 +41,7 @@ namespace TEAM_Server
 
             //Below are for service injection
             services.AddSingleton<IOutputService, OutputService>();
+            services.AddSingleton<IApplicationsService, ApplicationsService>();
         }
 
 

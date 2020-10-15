@@ -13,8 +13,9 @@ namespace TEAM_Server.Model.DB.Applications
         public string CompanyName { get; set; }
         public string companyID { get; set; }
         public string positionID { get; set; }
+        public bool IsFavorite { get; set; }
         public List<MidTask> Status { get; set; } //this status represent applied and result status static 
-        public Location.Location Location { get; set; }
+        public List<Category.Category> Categories { get; set; }
 
     }
 }
