@@ -1,6 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,18 +8,13 @@ using TEAM_Server.Model.DB.Events;
 using TEAM_Server.Model.DB.FollowUps;
 using TEAM_Server.Model.DB.Notes;
 
-namespace TEAM_Server.Model.DB.Applications
+namespace TEAM_Server.Model.DB.Companies
 {
-    public class Application
+    public class Company
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string _id { get; set; }
-        public string applicationID { get; set; }
-        public string uID { get; set; } // userID
-        public string authID { get; set; }  //same as userID
-        public List<MidTask> Tasks { get; set; }
-        public Application_Detail Detail { get; set; }
+        public string companyID { get; set; }
+        public string uID { get; set; }
+        public Company_Detail Detail { get; set; }
         public List<Event> Events { get; set; }
         public List<Note> Notes { get; set; }
         public List<Contact> Contacts { get; set; }

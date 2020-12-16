@@ -10,9 +10,9 @@ namespace TEAM_Server.Model.DB.Contacts
     {
         public string contactID { get; set; }
         public Contact_Detail PersonalDetail { get; set; }
+        //public List<Contact_Type> Contents { get; set; }  
         public Contact_Email Email { get; set; }
         public Contact_Phone Phone { get; set; }
-        public List<Contents_Sub> ConvoNote { get; set; }
-
+        public List<Contents_Sub> Convo { get; set; }
     }
 }

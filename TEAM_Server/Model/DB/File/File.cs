@@ -9,5 +9,6 @@ namespace TEAM_Server.Model.DB.File
     {
         public byte[] Contents { get; set; }
         public string Title { get; set; }
+        public bool IsChecked { get; set; }
     }
 }

@@ -12,6 +12,8 @@ namespace TEAM_Server.Configurations
         public string Auth { get; set; }
         public string Users { get; set; }
         public string Applications { get; set; }
+        public string Companies { get; set; }
+        public string Templates { get; set; }
     }
 
     public interface IMongoDBSettings
@@ -21,6 +23,8 @@ namespace TEAM_Server.Configurations
         public string Auth { get; set; }
         public string Users { get; set; }
         public string Applications { get; set; }
+        public string Companies { get; set; }
+        public string Templates { get; set; }
 
     }
 }

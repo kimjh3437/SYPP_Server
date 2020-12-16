@@ -16,6 +16,8 @@ namespace TEAM_Server.Model.DB.Users
         public string authID { get; set; }
         public User_Personal Personal { get; set; }
         public List<string> ApplicationIDs { get; set; }
+        public List<string> TemplateIDs { get; set; }
+        public List<string> CompanyIDs { get; set; }
         public List<Category.Category> Preferences { get; set; }
     }
 }
