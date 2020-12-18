@@ -9,6 +9,7 @@ namespace TEAM_Server.Configurations
     {
         public string DatabaseName { get; set; }
         public string ConnectionString { get; set; }
+        public string Notifications { get; set; }
         public string Auth { get; set; }
         public string Users { get; set; }
         public string Applications { get; set; }
@@ -20,6 +21,7 @@ namespace TEAM_Server.Configurations
     {
         public string DatabaseName { get; set; }
         public string ConnectionString { get; set; }
+        public string Notifications { get; set; }
         public string Auth { get; set; }
         public string Users { get; set; }
         public string Applications { get; set; }

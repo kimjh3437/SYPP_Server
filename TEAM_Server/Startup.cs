@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -31,17 +32,40 @@ namespace TEAM_Server
             services.AddCors();
             services.AddControllers();
 
-
-
             //Dependency 
             services.Configure<MongoDBSettings>(
                Configuration.GetSection("MongoDBSettings"));
-
+            services.Configure<NotificationSettings>(
+                Configuration.GetSection("NotificationSettings"));
 
 
             //Below are for service injection
             services.AddSingleton<IOutputService, OutputService>();
             services.AddSingleton<IApplicationsService, ApplicationsService>();
+            services.AddSingleton<INotificationService, NotificationService>();
+            services.AddSingleton<IAuthService, AuthService>();
+
+            /*            //__________JWT AUthorization_____________
+                        var key = Encoding.ASCII.GetBytes(Configuration.GetSection("AppSettings").Get<AppSettings>().Secret);
+                        services.AddAuthentication(x =>
+                        {
+                            x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                            x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                        })
+                        .AddJwtBearer(x =>
+                        {
+
+                            x.RequireHttpsMetadata = false;
+                            x.SaveToken = true;
+                            x.TokenValidationParameters = new TokenValidationParameters
+                            {
+                                ValidateIssuerSigningKey = true,
+                                IssuerSigningKey = new SymmetricSecurityKey(key),
+                                ValidateIssuer = false,
+                                ValidateAudience = false
+                            };
+                        });*/
+
         }
 
 

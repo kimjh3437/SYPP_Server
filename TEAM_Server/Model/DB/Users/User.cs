@@ -19,5 +19,6 @@ namespace TEAM_Server.Model.DB.Users
         public List<string> TemplateIDs { get; set; }
         public List<string> CompanyIDs { get; set; }
         public List<Category.Category> Preferences { get; set; }
+        public string Token { get; set; }
     }
 }

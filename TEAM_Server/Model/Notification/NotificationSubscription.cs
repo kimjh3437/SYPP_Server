@@ -4,23 +4,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using TEAM_Server.Utilities.Notification;
 
-namespace TEAM_Server.Model.DB.Auth
+namespace TEAM_Server.Model.Notification
 {
-    public class Auth
+    public class NotificationSubscription
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string _id { get; set; }
 
-        public string authID { get; set; }
-
         public string uID { get; set; }
 
-        public string Email { get; set; }
-
-        public byte[] PasswordHash { get; set; }
-
-        public byte[] PasswordSalt { get; set; }
+        public DeviceInstallation Installation { get; set; }
     }
 }

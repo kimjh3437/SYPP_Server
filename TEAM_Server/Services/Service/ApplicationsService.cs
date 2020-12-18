@@ -10,11 +10,15 @@ using TEAM_Server.Model.DB.Category;
 using TEAM_Server.Model.DB.Checklists;
 using TEAM_Server.Model.DB.Contacts;
 using TEAM_Server.Model.DB.Events;
+using TEAM_Server.Model.DB.File;
 using TEAM_Server.Model.DB.FollowUps;
 using TEAM_Server.Model.DB.Notes;
 using TEAM_Server.Model.General.PrimitiveType;
 using TEAM_Server.Model.RestRequest.Application;
+using TEAM_Server.Model.RestRequest.Checklist;
+using TEAM_Server.Model.RestRequest.Contact;
 using TEAM_Server.Model.RestRequest.Event;
+using TEAM_Server.Model.RestRequest.FollowUp;
 using TEAM_Server.Model.RestRequest.Note;
 using TEAM_Server.Services.Interface;
 
@@ -51,6 +55,10 @@ namespace TEAM_Server.Services.Service
                 else
                 {
                     application.Detail.applicationID = applicationID;
+                }
+                if(application.Events == null)
+                {
+                    application.Events = new List<Event>();
                 }
                 if (application.Notes == null)
                 {
@@ -224,5 +232,184 @@ namespace TEAM_Server.Services.Service
             return false;
         }
 
+
+        public Contact AddContact(Contact_Request model)
+        {
+            if (model.Contact != null)
+            {
+                Contact obj = model.Contact;
+                obj.contactID = Guid.NewGuid().ToString();
+                if (obj.PersonalDetail == null)
+                {
+                    obj.PersonalDetail = new Contact_Detail();
+                }
+                if (obj.Email == null)
+                {
+                    obj.Email = new Contact_Email();
+                }
+                if (obj.Phone == null)
+                {
+                    obj.Phone = new Contact_Phone();
+                }
+                if (obj.Convo == null)
+                {
+                    obj.Convo = new List<Contents_Sub>();
+                }
+                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+                var add = Builders<Application>.Update.AddToSet(x => x.Contacts, obj);
+
+                var result = _Applications.UpdateOne(filter, add);
+                if (result.IsAcknowledged)
+                {
+                    return obj;
+                }
+                return null;
+            }
+            return null;
+        }
+        public bool ContactSave(Contact_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Set(x => x.Contacts.Where(x => x.contactID == model.Contact.contactID).FirstOrDefault(), model.Contact);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
+        public bool ContactDelete(Contact_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Pull(x => x.Contacts, model.Contact);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public FollowUp AddFollowUp(FollowUp_Request model)
+        {
+            if (model.FollowUp != null)
+            {
+                FollowUp obj = model.FollowUp;
+                obj.followUpID = Guid.NewGuid().ToString();
+                if (obj.Personnel == null)
+                {
+                    obj.Personnel = new Contact_Detail();
+                }
+                if (obj.Description == null)
+                {
+                    obj.Description = new List<Contents_Sub>();
+                }
+                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+                var add = Builders<Application>.Update.AddToSet(x => x.FollowUps, obj);
+
+                var result = _Applications.UpdateOne(filter, add);
+                if (result.IsAcknowledged)
+                {
+                    return obj;
+                }
+                return null;
+            }
+            return null;
+        }
+        public bool FollowUpSave(FollowUp_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Set(x => x.FollowUps.Where(x => x.followUpID == model.FollowUp.followUpID).FirstOrDefault(), model.FollowUp);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool FollowUpDelete(FollowUp_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Pull(x => x.FollowUps, model.FollowUp);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
+
+
+        public Checklist AddChecklist(Checklist_Request model)
+        {
+            if (model.Checklist != null)
+            {
+                Checklist obj = model.Checklist;
+                obj.checklistID = Guid.NewGuid().ToString();
+                if (obj.Files == null)
+                {
+                    obj.Files = new List<File>();
+                }
+          
+                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+                var add = Builders<Application>.Update.AddToSet(x => x.Checklists, obj);
+
+                var result = _Applications.UpdateOne(filter, add);
+                if (result.IsAcknowledged)
+                {
+                    return obj;
+                }
+                return null;
+            }
+            return null;
+        }
+        public bool ChecklistSave(Checklist_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Set(x => x.Checklists.Where(x => x.checklistID == model.Checklist.checklistID).FirstOrDefault(), model.Checklist);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool ChecklistDelete(Checklist_Request model)
+        {
+            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
+            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
+            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
+            var update = Builders<Application>.Update.Pull(x => x.Checklists, model.Checklist);
+
+            var result = _Applications.UpdateOne(filter, update);
+            if (result.IsAcknowledged)
+            {
+                return true;
+            }
+            return false;
+        }
     }
 }
