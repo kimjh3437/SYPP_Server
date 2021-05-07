@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,9 @@ using TEAM_Server.Model.DB.Events;
 using TEAM_Server.Model.DB.File;
 using TEAM_Server.Model.DB.FollowUps;
 using TEAM_Server.Model.DB.Notes;
+using TEAM_Server.Model.DTO.Application;
+using TEAM_Server.Model.DTO.Event;
+using TEAM_Server.Model.DTO.Note;
 using TEAM_Server.Model.General.PrimitiveType;
 using TEAM_Server.Model.RestRequest.Application;
 using TEAM_Server.Model.RestRequest.Checklist;
@@ -36,380 +40,626 @@ namespace TEAM_Server.Services.Service
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _Applications = database.GetCollection<Application>(settings.Value.Applications);
         }
-        public Application CreateApplication(Application application)
+        //___________________________________________________________________________________
+        //
+        // Template Method - Below
+        //___________________________________________________________________________________
+        public async Task TemplateMethod(object param1, object param2)
         {
-            string applicationID = Guid.NewGuid().ToString();
-            if(application != null)
+            try
             {
-                application.applicationID = applicationID;
-                application.authID = application.uID;
-                if(application.Tasks == null)
+
+            }
+            catch (Exception ex)
+            {
+                Console.Write($"<MethodName> : {ex}");
+            }
+        }
+
+        //___________________________________________________________________________________
+        //
+        // Create Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Applications Related - Below___
+        public async Task<Application> CreateApplication(Application_Create_DTO input)
+        {
+            try
+            {
+                var applicationID = Guid.NewGuid().ToString();
+                input.Detail.applicationID = applicationID;
+                if(input.Detail.Status == null || input.Detail.Status.Count == 0)
                 {
-                    application.Tasks = new List<MidTask>(); 
-                }
-                if(application.Detail == null)
-                {
-                    application.Detail = new Application_Detail();
-                    application.Detail.IsFavorite = false;
+                    input.Detail.Status = new List<MidTask>();
                 }
                 else
                 {
-                    application.Detail.applicationID = applicationID;
+                    foreach(var item in input.Detail.Status)
+                    {
+                        item.applicationID = applicationID;
+                    }
                 }
-                if(application.Events == null)
+                if (input.Detail.Categories == null || input.Detail.Categories.Count == 0)
                 {
-                    application.Events = new List<Event>();
+                    input.Detail.Categories = new List<Category>();
                 }
-                if (application.Notes == null)
+                var application = new Application
                 {
-                    application.Notes = new List<Note>();
-                }
-                if(application.Contacts == null)
+                    Detail = input.Detail,
+                    Tasks = new List<MidTask>(),
+                    Events = new List<Event>(),
+                    Notes = new List<Note>(),
+                    Contacts = new List<Contact>(),
+                    FollowUps = new List<FollowUp>(),
+                    Checklists = new List<Checklist>()
+                };
+                await _Applications.InsertOneAsync(application);
+                return application;
+            }
+            catch (Exception ex)
+            {
+                Console.Write($"<CreateApplication> : {ex}");
+                return null;
+            }
+        }
+
+
+        //___Applications Task Related - Below___
+        public async Task<MidTask> CreateApplicationMidTask(MidTask param)
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(param.applicationID))
+                    return null;
+
+                param.midTaskID = Guid.NewGuid().ToString();
+
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.Tasks, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                return param;
+            }
+            catch(Exception ex)
+            {
+                return null;
+            } 
+        } 
+
+
+        //___Events Related - Below___
+        public async Task<Event> CreateEvent(Event param)
+        {
+            try
+            {
+                var eventID = Guid.NewGuid().ToString();
+                param.eventID = eventID;
+                param.Detail.eventID = eventID;
+                foreach (var item in param.Contents)
                 {
-                    application.Contacts = new List<Contact>();
+                    item.belongingID = eventID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = eventID;
+                    }
                 }
-                if(application.FollowUps == null)
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.Events, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
                 {
-                    application.FollowUps = new List<FollowUp>();
+                    return param;
                 }
-                if(application.Checklists == null)
-                {
-                    application.Checklists = new List<Checklist>();
-                }
-                try
-                {
-                    _Applications.InsertOne(application);
-                    return application;
-                }
-                catch (Exception e)
+                else
                 {
                     return null;
-                }  
+                }
             }
-            //TODO 
-            return null;
-        }
-    
-        public List<Application> GetApplications(List_Model list)
-        {
-            List<Application> Apps = new List<Application>();
-            Apps = _Applications.Find<Application>(x => list.list.Contains(x.applicationID)).ToList();
-            if (Apps != null)
-                return Apps;
-            return null;
+            catch (Exception ex)
+            {
+                return null;
+            }
         }
 
-        public Boolean AddFavoriteApplication(Application_Favorite_Change model)
+
+        //___Notes Related - Below___
+        public async Task<Note> CreateNote(Note param)
         {
-            if(model != null)
+            try
             {
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID,  model.applicationID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var fix = Builders<Application>.Update.Set(x => x.Detail.IsFavorite, model.Status);
-                var update = _Applications.UpdateOne(filter, fix);
-                if (update.IsAcknowledged)
+                var noteID = Guid.NewGuid().ToString();
+                param.noteID = noteID;
+                param.Detail.noteID = noteID;
+                foreach (var item in param.Contents)
                 {
-                    return true;
+                    item.belongingID = noteID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = noteID;
+                    }
+                }
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.Notes, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
                 }
                 else
-                    return false; 
+                {
+                    return null;
+                }
             }
-            return false;
-        }
-     
-        public Event AddEvent(Event_Request model)
-        {
-            if(model.Event != null)
+            catch(Exception ex)
             {
-                Event obj = model.Event;
-                obj.eventID = Guid.NewGuid().ToString();
-                if(obj.Detail == null)
-                {
-                    obj.Detail = new Event_Detail();
-                }
-                if(obj.Contents == null)
-                {
-                    obj.Contents = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var add = Builders<Application>.Update.AddToSet(x => x.Events, obj);
+                return null;
+            }
+        }
 
-                var result = _Applications.UpdateOne(filter, add);
+
+        //___Contacts Related - Below___
+        public async Task<Contact> CreateContact(Contact param)
+        {
+            try
+            {
+                var contactID = Guid.NewGuid().ToString();
+                param.contactID = contactID;
+                param.Detail.contactID = contactID;
+                param.Phone.contactID = contactID;
+                param.Email.contactID = contactID;
+                foreach (var item in param.Convo)
+                {
+                    item.belongingID = contactID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = contactID;
+                    }
+                }
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.Contacts, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
                 if (result.IsAcknowledged)
                 {
-                    return obj;
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Follow Ups Related - Below___
+        public async Task<FollowUp> CreateFollowUp(FollowUp param)
+        {
+            try
+            {
+                var followUpID = Guid.NewGuid().ToString();
+                param.followUpID = followUpID;
+                param.Detail.followUpID = followUpID;
+                foreach (var item in param.Description)
+                {
+                    item.belongingID = followUpID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = followUpID;
+                    }
+                }
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.FollowUps, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Checklists Related - Below___
+        public async Task<Checklist> CreateChecklist(Checklist param)
+        {
+            try
+            {
+                var checklistID = Guid.NewGuid().ToString();
+                param.checklistID = checklistID;
+                foreach (var item in param.Options)
+                {
+                    item.checklistID = checklistID;
+                }
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.applicationID);
+                var update = Builders<Application>.Update.AddToSet(x => x.Checklists, param);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___________________________________________________________________________________
+        //
+        // Update Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Applications Related - Below___
+        public async Task<bool> ChangeApplicationIsFavorite(Application_IsFavorite_Update_DTO model)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, model.applicationID);
+                var update = Builders<Application>.Update.Set(x => x.Detail.IsFavorite, model.IsFavorite);
+                var result = await _Applications.UpdateOneAsync(filter, update);
+                return result.IsAcknowledged;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+        //___Events Related - Below___
+
+        public async Task<bool> UpdateEventDetail(Event_Detail param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.Detail.applicationID, param.applicationID);
+                var update = Builders<Application>.Update.Set("Events.$[event].Detail", "2cb66");
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("event.event", param.eventID);
+
+                arrayFilters.Add(level1);
+
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                return result.IsAcknowledged;
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+        }
+        public async Task<bool> UpdateEventContents(Event_Contents_Update_DTO param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.Detail.applicationID, param.applicationID);
+
+                //Update Header 
+                if (String.IsNullOrEmpty(param.textID))
+                {
+                    var update = Builders<Application>.Update.Set("Events.$[event].Header", param.Header);
+                    var arrayFilters = new List<ArrayFilterDefinition>();
+                    ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("event.eventID", param.eventID);
+                    arrayFilters.Add(level1);
+                    var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                    var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                    return result.IsAcknowledged;
+                }
+
+                //Update Contents 
+                if (!String.IsNullOrEmpty(param.textID))
+                {
+                    var update = Builders<Application>.Update.Set("Events.$[event].Contents.$[content].Content", param.Content);
+                    var arrayFilters = new List<ArrayFilterDefinition>();
+                    ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("event.eventID", param.eventID);
+                    ArrayFilterDefinition<BsonDocument> level2 = new BsonDocument("content.textID", param.textID);
+                    arrayFilters.Add(level1);
+                    arrayFilters.Add(level2);
+                    var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                    var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                    return result.IsAcknowledged;
+                }
+                return false;
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+        }
+        public async Task<Event> UpdateEvent(Event param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.Detail.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.Set("Events.$[event]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("event.eventID", param.eventID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+            }
+            catch(Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Notes Related - Below___
+        public async Task<Note> UpdateNote(Note param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.Detail.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.Set("Notes.$[note]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("note.noteID", param.noteID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+                ////Update Header 
+                //if (false)
+                //{
+                //    var update = Builders<Application>.Update.Set("Notes.$[note].Contents.$[noteContents].", param.Header);
+                //    var arrayFilters = new List<ArrayFilterDefinition>();
+                //    ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("note.noteID", param.noteID);
+                //    ArrayFilterDefinition<BsonDocument> level2 = new BsonDocument("noteContents.noteContentsID", param.noteContentsID);
+                //    arrayFilters.Add(level1);
+                //    arrayFilters.Add(level2);
+                //    var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                //    var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                //    return result.IsAcknowledged;
+                //}
+
+                ////Update Contents 
+                //if (false)
+                //{
+                //    var update = Builders<Application>.Update.Set("Notes.$[note].Contents.$[content].Contents", param.Contents);
+                //    var arrayFilters = new List<ArrayFilterDefinition>();
+                //    ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("note.noteID", param.noteID);
+                //    ArrayFilterDefinition<BsonDocument> level2 = new BsonDocument("content.noteContentsID", param.noteContentsID);
+                //    arrayFilters.Add(level1);
+                //    arrayFilters.Add(level2);
+                //    var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                //    var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                //    return result.IsAcknowledged;
+                //}
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Contacts Related - Below___
+        public async Task<Contact> UpdateContact(Contact param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.Set("Contacts.$[contact]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("contact.contactID", param.contactID);
+                
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch(Exception ex)
+            {
+                return null;
+            }
+        }
+
+        //___Follow Ups Related - Below___
+        public async Task<FollowUp> UpdateConvoHistory(FollowUp param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.Detail.applicationID);
+                var update = Builders<Application>.Update.Set("FollowUps.$[followup]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("followup.followUpID", param.followUpID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        //___Checklists Related - Below___
+        public async Task<Checklist> UpdateChecklist(Checklist param)
+        {
+            try
+            {
+                var filter = Builders<Application>.Filter.Eq(x => x.applicationID, param.applicationID);
+                var update = Builders<Application>.Update.Set("Checklists.$[checklist]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("checklist.checklistID", param.checklistID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Applications.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        //___________________________________________________________________________________
+        //
+        // Get Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Applications Related - Below___
+        public async Task<List<Application>> GetApplications(List<String> list)
+        {
+            try
+            {
+                List<Application> Apps = new List<Application>();
+                Apps = _Applications.Find<Application>(x => list.Contains(x.applicationID)).ToList();
+                if (Apps != null)
+                    return Apps;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Events Related - Below___
+        public async Task<Event> GetEvent(string uID, string applicationID, string eventID)
+        {
+            try
+            {
+                var application = _Applications.Find(x => x.applicationID == applicationID && x.Detail.uID == uID).FirstOrDefault();
+                if (application != null)
+                {
+                    var output = application.Events.Where(x => x.Detail.eventID == eventID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool EventSave(Event_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Set(x => x.Events.Where(x => x.eventID == model.Event.eventID).FirstOrDefault(), model.Event);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool EventDelete(Event_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Pull(x => x.Events, model.Event);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
-        public Note AddNote(Note_Request model)
+        //___Notes Related - Below___
+        public async Task<Note> GetNote(string uID, string applicationID, string noteID)
         {
-            if (model.Note != null)
+            try
             {
-                Note obj = model.Note;
-                obj.noteID = Guid.NewGuid().ToString();
-                if (obj.Detail == null)
+                var application = _Applications.Find(x => x.applicationID == applicationID && x.Detail.uID == uID).FirstOrDefault();
+                if (application != null)
                 {
-                    obj.Detail = new Note_Detail();
-                }
-                if (obj.Contents == null)
-                {
-                    obj.Contents = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var add = Builders<Application>.Update.AddToSet(x => x.Notes, obj);
-
-                var result = _Applications.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = application.Notes.Where(x => x.Detail.noteID == noteID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool NoteSave(Note_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Set(x => x.Notes.Where(x => x.noteID == model.Note.noteID).FirstOrDefault(), model.Note);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool NoteDelete(Note_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Pull(x => x.Notes, model.Note);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
-
-        public Contact AddContact(Contact_Request model)
+        //___Contacts Related - Below___
+        public async Task<Contact> GetContact(string uID, string applicationID, string contactID)
         {
-            if (model.Contact != null)
+            try
             {
-                Contact obj = model.Contact;
-                obj.contactID = Guid.NewGuid().ToString();
-                if (obj.PersonalDetail == null)
+                var application = _Applications.Find(x => x.applicationID == applicationID && x.Detail.uID == uID).FirstOrDefault();
+                if (application != null)
                 {
-                    obj.PersonalDetail = new Contact_Detail();
-                }
-                if (obj.Email == null)
-                {
-                    obj.Email = new Contact_Email();
-                }
-                if (obj.Phone == null)
-                {
-                    obj.Phone = new Contact_Phone();
-                }
-                if (obj.Convo == null)
-                {
-                    obj.Convo = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var add = Builders<Application>.Update.AddToSet(x => x.Contacts, obj);
-
-                var result = _Applications.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = application.Contacts.Where(x => x.Detail.contactID == contactID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool ContactSave(Contact_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Set(x => x.Contacts.Where(x => x.contactID == model.Contact.contactID).FirstOrDefault(), model.Contact);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool ContactDelete(Contact_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Pull(x => x.Contacts, model.Contact);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
-        public FollowUp AddFollowUp(FollowUp_Request model)
+        //___Follow Ups Related - Below___
+        public async Task<FollowUp> GetFollowUp(string uID, string applicationID, string followUpID)
         {
-            if (model.FollowUp != null)
+            try
             {
-                FollowUp obj = model.FollowUp;
-                obj.followUpID = Guid.NewGuid().ToString();
-                if (obj.Personnel == null)
+                var application = _Applications.Find(x => x.applicationID == applicationID && x.Detail.uID == uID).FirstOrDefault();
+                if (application != null)
                 {
-                    obj.Personnel = new Contact_Detail();
-                }
-                if (obj.Description == null)
-                {
-                    obj.Description = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var add = Builders<Application>.Update.AddToSet(x => x.FollowUps, obj);
-
-                var result = _Applications.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = application.FollowUps.Where(x => x.Detail.followUpID == followUpID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool FollowUpSave(FollowUp_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Set(x => x.FollowUps.Where(x => x.followUpID == model.FollowUp.followUpID).FirstOrDefault(), model.FollowUp);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-
-        public bool FollowUpDelete(FollowUp_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Pull(x => x.FollowUps, model.FollowUp);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
 
-        public Checklist AddChecklist(Checklist_Request model)
+        //___Checklists Related - Below___
+        public async Task<Checklist> GetChecklist(string uID, string applicationID, string checklistID)
         {
-            if (model.Checklist != null)
+            try
             {
-                Checklist obj = model.Checklist;
-                obj.checklistID = Guid.NewGuid().ToString();
-                if (obj.Files == null)
+                var application = _Applications.Find(x => x.applicationID == applicationID && x.Detail.uID == uID).FirstOrDefault();
+                if (application != null)
                 {
-                    obj.Files = new List<File>();
-                }
-          
-                var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-                var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-                var add = Builders<Application>.Update.AddToSet(x => x.Checklists, obj);
-
-                var result = _Applications.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = application.Checklists.Where(x => x.checklistID == checklistID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool ChecklistSave(Checklist_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Set(x => x.Checklists.Where(x => x.checklistID == model.Checklist.checklistID).FirstOrDefault(), model.Checklist);
-
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
         }
 
-        public bool ChecklistDelete(Checklist_Request model)
-        {
-            var filter_1 = Builders<Application>.Filter.Eq(x => x.applicationID, model.correspondenceID);
-            var filter_2 = Builders<Application>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Application>.Filter.And(filter_1, filter_2);
-            var update = Builders<Application>.Update.Pull(x => x.Checklists, model.Checklist);
 
-            var result = _Applications.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
-        }
+
     }
 }

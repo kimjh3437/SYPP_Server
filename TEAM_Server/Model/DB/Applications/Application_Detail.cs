@@ -16,5 +16,6 @@ namespace TEAM_Server.Model.DB.Applications
         public List<MidTask> Status { get; set; } //this status represent applied and result status static 
         public List<Category.Category> Categories { get; set; }
         public bool IsFavorite { get; set; }
+        public bool HasApplied { get; set; }
     }
 }

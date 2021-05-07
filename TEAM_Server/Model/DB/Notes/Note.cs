@@ -11,5 +11,6 @@ namespace TEAM_Server.Model.DB.Notes
         //  public string applicationID { get; set; }
         public Note_Detail Detail { get; set; }
         public List<Contents_Sub> Contents { get; set; }
+        public List<TEAM_Server.Model.DB.File.File> Files { get; set; }
     }
 }

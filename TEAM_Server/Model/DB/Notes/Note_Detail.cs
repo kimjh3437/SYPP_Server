@@ -8,6 +8,8 @@ namespace TEAM_Server.Model.DB.Notes
     public class Note_Detail
     {
         public string noteID { get; set; }
+        public string companyID { get; set; }
+        public string applicationID { get; set; }
         public string Title { get; set; }
         public DateTime Time { get; set; }
     }

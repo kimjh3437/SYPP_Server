@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TEAM_Server.Configurations;
+using TEAM_Server.Services.Hub;
 using TEAM_Server.Services.Interface;
 using TEAM_Server.Services.Service;
 
@@ -31,12 +32,19 @@ namespace TEAM_Server
         {
             services.AddCors();
             services.AddControllers();
+            services.AddSignalR((options =>
+            {
+                options.MaximumReceiveMessageSize = 102400;//
+                options.EnableDetailedErrors = true;
+            }));
 
             //Dependency 
             services.Configure<MongoDBSettings>(
                Configuration.GetSection("MongoDBSettings"));
             services.Configure<NotificationSettings>(
                 Configuration.GetSection("NotificationSettings"));
+            services.Configure<AppSettings>(
+                Configuration.GetSection("AppSettings"));
 
 
             //Below are for service injection
@@ -94,6 +102,7 @@ namespace TEAM_Server
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHub<SignalRSocketHub>("/chathub");
             });
         }
     }

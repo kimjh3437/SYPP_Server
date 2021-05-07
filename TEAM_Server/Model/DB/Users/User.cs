@@ -13,7 +13,6 @@ namespace TEAM_Server.Model.DB.Users
         [BsonRepresentation(BsonType.ObjectId)]
         public string _id { get; set; }
         public string uID { get; set; }
-        public string authID { get; set; }
         public User_Personal Personal { get; set; }
         public List<string> ApplicationIDs { get; set; }
         public List<string> TemplateIDs { get; set; }

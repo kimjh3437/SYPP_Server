@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
@@ -20,14 +21,15 @@ using TEAM_Server.Utilities.Notification;
 
 namespace TEAM_Server.Services.Service
 {
-    public class AuthService : IAuthService
+    public class AuthService  : IAuthService
     {
         private INotificationService _notification;
-        IMongoCollection<Auth> _auths;
+        private IMongoCollection<Auth> _auths;
         private IMongoCollection<User> _Users;
         private IOptions<MongoDBSettings> _settings;
         private IOptions<AppSettings> _secrets;
         public AuthService(
+            INotificationService notification,
             IOptions<AppSettings> secrets,
             IOptions<MongoDBSettings> settings)
         {
@@ -36,6 +38,8 @@ namespace TEAM_Server.Services.Service
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _Users = database.GetCollection<User>(settings.Value.Users);
+            _auths = database.GetCollection<Auth>(settings.Value.Auth);
+            _notification = notification;
         }
         void UpdatePersonalTag(string uID, string tag, bool remove)
         {
@@ -62,7 +66,11 @@ namespace TEAM_Server.Services.Service
             _notification.RequestNotificationAsync(request);
         }
 
-        public List<User_Personal> GetAllUsers()
+        //___________________________________________________________________________________
+        //
+        // Get Method Type Handlers - Below
+        //___________________________________________________________________________________
+        public async Task<List<User_Personal>> GetAllUsers()
         {
             List<User_Personal> personals = new List<User_Personal>();
             List<User> list = new List<User>();
@@ -77,6 +85,226 @@ namespace TEAM_Server.Services.Service
 
         }
 
+        //___User  Related - Below___
+        public async Task<List<string>> GetApplicationIDs(string uID)
+        {
+            try
+            {
+                var user = _Users.Find(x => x.uID == uID).FirstOrDefault();
+                if(user != null)
+                {
+                    return user.ApplicationIDs;
+                }
+                return null;
+            }
+            catch(Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<List<string>> GetcompanyIDs(string uID)
+        {
+            try
+            {
+                var user = _Users.Find(x => x.uID == uID).FirstOrDefault();
+                if (user != null)
+                {
+                    return user.CompanyIDs;
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<List<string>> GetTemplateIDs(string uID)
+        {
+            try
+            {
+                var user = _Users.Find(x => x.uID == uID).FirstOrDefault();
+                if (user != null)
+                {
+                    return user.TemplateIDs;
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        //___Applications Related - Below___
+
+        //___Events Related - Below___
+
+        //___Notes Related - Below___
+
+        //___Contacts Related - Below___
+
+        //___Follow Ups Related - Below___
+
+        //___Checklists Related - Below___
+
+
+        //___________________________________________________________________________________
+        //
+        // Update Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        public async Task<bool> UpdatePersonalInfo(User_Personal personal)
+        {
+            try
+            {
+                var filter = Builders<User>.Filter.Eq(x => x.uID, personal.uID);
+                var update = Builders<User>.Update.Set(x => x.Personal, personal);
+                var result = await _Users.UpdateOneAsync(filter, update);
+                return result.IsAcknowledged;
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+        }
+        public async Task<bool> UpdateUserApplicationID(string uID, string applicationID, bool isRemove)
+        {
+            try
+            {
+                if (!isRemove)
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.AddToSet(x => x.ApplicationIDs, applicationID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+                else
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.Pull(x => x.ApplicationIDs, applicationID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+                
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+        }
+        public async Task<bool> UpdateUserCompanyID(string uID, string companyID, bool isRemove)
+        {
+            try
+            {
+                if (!isRemove)
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.AddToSet(x => x.CompanyIDs, companyID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+                else
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.Pull(x => x.CompanyIDs, companyID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+                    
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+        }
+        public async Task<bool> UpdateUserTemplateID(string uID, string templateID, bool isRemove)
+        {
+            try
+            {
+                if (!isRemove)
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.AddToSet(x => x.TemplateIDs, templateID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+                else
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    var update = Builders<User>.Update.Pull(x => x.TemplateIDs, templateID);
+                    var result = await _Users.UpdateOneAsync(filter, update);
+                    return result.IsAcknowledged;
+                }
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+
+
+        //___________________________________________________________________________________
+        //
+        // Create Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Applications Related - Below___
+        public async Task<bool> UpdateUserPreferences(Category category, string uID) 
+        {
+            try
+            {
+                var user = await _Users.Find(x => x.uID == uID).FirstOrDefaultAsync();
+                if(user != null)
+                {
+                    var filter = Builders<User>.Filter.Eq(x => x.uID, uID);
+                    if (user.Preferences.Where(x => x.Type.ToLower().Equals(category.Type.ToLower()) || x.Type.ToLower().Contains(category.Type.ToLower())).Any())
+                    {
+                        List<Task> Tasks = new List<Task>();
+                        foreach (var item in category.SuggestionsOrSeleceted)
+                        {
+                            var update = Builders<User>.Update.Set("Preferences.$[preference].SuggestionsOrSeleceted", item);
+                            var arrayFilters = new List<ArrayFilterDefinition>();
+                            ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("preference.categoryID", category.categoryID);
+                            arrayFilters.Add(level1);
+                            var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                            var result = await _Users.UpdateOneAsync(filter, update, updateOptions);
+                            return result.IsAcknowledged;
+                        }
+                    }
+                    else
+                    {
+                        var update = Builders<User>.Update.AddToSet(x => x.Preferences, category);
+                        var result = await _Users.UpdateOneAsync(filter, update);
+                        return result.IsAcknowledged;
+                    }
+                }
+                return false;
+            }
+            catch(Exception ex)
+            {
+                                
+                return false;
+            }
+        }
+
+        //___Applications Related - Below___
+
+        //___Events Related - Below___
+
+        //___Notes Related - Below___
+
+        //___Contacts Related - Below___
+
+        //___Follow Ups Related - Below___
+
+        //___Checklists Related - Below___
+
+
+        //___________________________________________________________________________________
+        //
+        // Event Handler Method Type Handlers - Below
+        //___________________________________________________________________________________
         public Boolean NameCheck(string email)
         {
             Auth user = new Auth();
@@ -85,21 +313,20 @@ namespace TEAM_Server.Services.Service
                 return true;
             return false;
         }
-
-
-        public User Register(User_Register model)
+        public async Task<User> Register(User_Register model)
         {
             var uID = Guid.NewGuid().ToString();
             if (string.IsNullOrWhiteSpace(model.Password))
                 throw new ApplicationException("Password is required");
 
-            if (_auths.Find(x => x.Email == model.Email) != null)
+            if (_auths.Find(x => x.Email == model.Email) == null)
                 throw new ApplicationException("Username \"" + model.Email + "\" is already taken");
 
-            User user = new User();
+
             List<string> list = new List<string>();
             User_Personal personal = new User_Personal
             {
+                Email = model.Email,
                 Firstname = model.Firstname,
                 Lastname = model.Lastname,
                 uID = uID
@@ -107,13 +334,42 @@ namespace TEAM_Server.Services.Service
             Auth serialized = new Auth();
 
             // sets up personal information on newly registered account 
-            user.uID = uID;
-            user.authID = uID;
-            user.Personal = personal;
-            user.ApplicationIDs = new List<string>();
-            user.TemplateIDs = new List<string>();
-            user.CompanyIDs = new List<string>();
-            user.Preferences = new List<Category>();
+            var user = new User
+            {
+                uID = uID,
+                Personal = personal,
+                ApplicationIDs = new List<string>(),
+                TemplateIDs = new List<string>(),
+                CompanyIDs = new List<string>(),
+                Preferences = new List<Category> 
+                {
+                    new Category
+                    {
+                        categoryID = "allID",
+                        Type = "All",
+                        SuggestionsOrSeleceted = new List<Category_Suggestion>()
+                    },
+                    new Category
+                    {
+                        categoryID = "starredID",
+                        Type = "Starred",
+                        SuggestionsOrSeleceted = new List<Category_Suggestion>()
+                    },
+                    new Category
+                    {
+                        categoryID = "roleID",
+                        Type = "Role",
+                        SuggestionsOrSeleceted = new List<Category_Suggestion>()
+                    },
+                    new Category
+                    {
+                        categoryID = "locationID",
+                        Type = "Location",
+                        SuggestionsOrSeleceted = new List<Category_Suggestion>()
+                    },
+                },
+                Token = ""
+            };
 
             //sets up security hash salt 
             byte[] passwordHash, passwordSalt;
@@ -131,7 +387,6 @@ namespace TEAM_Server.Services.Service
             Connector(user_personal, "User_Register", false, null);
             return user;
         }
-
         public User Authenticate(User_Authenticate authenticate)
         {
             var username = authenticate.Email;
@@ -167,24 +422,6 @@ namespace TEAM_Server.Services.Service
             user.Token = tokenString;
             return user;
         }
-
-        public bool UpdatePersonalInfo(User_Personal personal)
-        {
-            var user = _Users.Find<User>(x => x.uID == personal.uID).FirstOrDefault();
-
-            var filter = Builders<User>.Filter.Eq(x => x.uID, personal.uID);
-            var update = Builders<User>.Update.Set(x => x.Personal, personal);
-            var status = _Users.UpdateOne(filter, update);
-            if (status != null)
-            {
-                var json = JsonConvert.SerializeObject(personal);
-                Connector(json, "User_Update", false, null);
-                return true;
-            }
-            return false;
-
-        }
-
         private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
         {
             if (password == null) throw new ArgumentNullException("password");
@@ -196,7 +433,6 @@ namespace TEAM_Server.Services.Service
                 passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
             }
         }
-
         private static bool VerifyPasswordHash(string password, byte[] storedHash, byte[] storedSalt)
         {
             if (password == null) throw new ArgumentNullException("password");

@@ -14,5 +14,7 @@ namespace TEAM_Server.Model.DB.Applications
         public bool Status { get; set; }
         public bool IsFavorite { get; set; }
         public bool IsVisible { get; set; }
+        public string companyID { get; set; }
+        public string applicationID { get; set; }
     }
 }

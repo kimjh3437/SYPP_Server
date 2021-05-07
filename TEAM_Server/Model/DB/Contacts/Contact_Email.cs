@@ -7,6 +7,7 @@ namespace TEAM_Server.Model.DB.Contacts
 {
     public class Contact_Email
     {
+        public string contactID { get; set; }
         public string emailID { get; set; }
         public string Email { get; set; }
     }

@@ -19,7 +19,6 @@ namespace TEAM_Server.Model.DB.Applications
         public string _id { get; set; }
         public string applicationID { get; set; }
         public string uID { get; set; } // userID
-        public string authID { get; set; }  //same as userID
         public List<MidTask> Tasks { get; set; }
         public Application_Detail Detail { get; set; }
         public List<Event> Events { get; set; }

@@ -15,6 +15,8 @@ namespace TEAM_Server.Configurations
         public string Applications { get; set; }
         public string Companies { get; set; }
         public string Templates { get; set; }
+        public string Categories { get; set; }
+        public string Connections { get; set; }
     }
 
     public interface IMongoDBSettings
@@ -27,6 +29,8 @@ namespace TEAM_Server.Configurations
         public string Applications { get; set; }
         public string Companies { get; set; }
         public string Templates { get; set; }
+        public string Categories { get; set; }
+        public string Connections { get; set; }
 
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -9,406 +10,488 @@ using TEAM_Server.Model.DB.Checklists;
 using TEAM_Server.Model.DB.Companies;
 using TEAM_Server.Model.DB.Contacts;
 using TEAM_Server.Model.DB.Events;
-using TEAM_Server.Model.DB.File;
 using TEAM_Server.Model.DB.FollowUps;
 using TEAM_Server.Model.DB.Notes;
-using TEAM_Server.Model.DB.Users;
-using TEAM_Server.Model.General.PrimitiveType;
-using TEAM_Server.Model.RestRequest.Checklist;
-using TEAM_Server.Model.RestRequest.Company;
-using TEAM_Server.Model.RestRequest.Contact;
-using TEAM_Server.Model.RestRequest.Event;
-using TEAM_Server.Model.RestRequest.FollowUp;
-using TEAM_Server.Model.RestRequest.Note;
+using TEAM_Server.Model.DTO.Company;
 using TEAM_Server.Services.Interface;
 
 namespace TEAM_Server.Services.Service
 {
+    
     public class CompanyService : ICompanyService
     {
         private IMongoCollection<Company> _Companies;
-        private IMongoCollection<User> _Users;
-        private IOptions<MongoDBSettings> _settings;
-        private INotificationService _Notification;
         public CompanyService(
-            INotificationService Noti,
             IOptions<MongoDBSettings> settings)
         {
-            _Notification = Noti;
-            _settings = settings;
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _Companies = database.GetCollection<Company>(settings.Value.Companies);
-            _Users = database.GetCollection<User>(settings.Value.Users);
         }
-        public Company CreateCompany(Company model)
+
+        //___________________________________________________________________________________
+        //
+        // Create/Update Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Companies Related - Below___
+        public async Task<Company> CreateCompany(Company_Detail input)
         {
-            string companyID = Guid.NewGuid().ToString();
-            if(model != null)
-            {             
-                model.companyID = companyID;
-            }
-            if (model.Detail == null)
-            {
-                model.Detail = new Company_Detail();
-                model.Detail.IsFavorite = false;
-                model.companyID = companyID;
-            }
-            else
-            {
-                model.Detail.companyID = companyID;
-            }
-            if(model.Events == null)
-            {
-                model.Events = new List<Event>();
-            }
-            if (model.Notes == null)
-            {
-                model.Notes = new List<Note>();
-            }
-            if (model.Contacts == null)
-            {
-                model.Contacts = new List<Contact>();
-            }
-            if (model.FollowUps == null)
-            {
-                model.FollowUps = new List<FollowUp>();
-            }
-            if (model.Checklists == null)
-            {
-                model.Checklists = new List<Checklist>();
-            }
             try
             {
-                _Companies.InsertOne(model);
-                return model; 
+                var companyID = Guid.NewGuid().ToString();
+                input.companyID = companyID;
+                input.SubmittedTime = DateTime.UtcNow;
+ 
+                var company = new Company
+                {
+                    Detail = input,
+                    Events = new List<Event>(),
+                    Notes = new List<Note>(),
+                    Contacts = new List<Contact>(),
+                    FollowUps = new List<FollowUp>(),
+                    Checklists = new List<Checklist>()
+                };
+                await _Companies.InsertOneAsync(company);
+                return company;
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
+                Console.Write($"<CreateApplication> : {ex}");
                 return null;
             }
         }
-        
-        public List<Company> GetCompanies(List_Model list)
+        public async Task<bool> ChangeCompanyIsFavorite(Company_IsFavorite_Update_DTO model)
         {
-            List<Company> companies = new List<Company>();
-            companies = _Companies.Find<Company>(x => list.list.Contains(x.companyID)).ToList();
-            if (companies != null)
-                return companies;
-            return null;
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, model.companyID);
+                var update = Builders<Company>.Update.Set(x => x.Detail.IsFavorite, model.IsFavorite);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                return result.IsAcknowledged;
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
         }
 
-        public Boolean AddFavoriteCompany(Company_Favorite_Change model)
+        //___Events Related - Below___
+        public async Task<Event> CreateEvent(Event param)
         {
-            if (model != null)
+            try
             {
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.companyID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var fix = Builders<Company>.Update.Set(x => x.Detail.IsFavorite, model.Status);
-                var update = _Companies.UpdateOne(filter, fix);
-                if (update.IsAcknowledged)
+                var eventID = Guid.NewGuid().ToString();
+                param.eventID = eventID;
+                param.Detail.eventID = eventID;
+                foreach (var item in param.Contents)
                 {
-                    return true;
+                    item.belongingID = eventID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = eventID;
+                    }
+                }
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.AddToSet(x => x.Events, param);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
                 }
                 else
-                    return false;
+                {
+                    return null;
+                }
             }
-            return false;
-        }
-
-        public Event AddEvent(Event_Request model)
-        {
-            if (model.Event != null)
+            catch (Exception ex)
             {
-                Event obj = model.Event;
-                obj.eventID = Guid.NewGuid().ToString();
-                if (obj.Detail == null)
-                {
-                    obj.Detail = new Event_Detail();
-                }
-                if (obj.Contents == null)
-                {
-                    obj.Contents = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var add = Builders<Company>.Update.AddToSet(x => x.Events, obj);
+                return null;
+            }
+        }
+        public async Task<Event> UpdateEvent(Event param)
+        {
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.Detail.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.Set("Events.$[event]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("event.eventID", param.eventID);
 
-                var result = _Companies.UpdateOne(filter, add);
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Companies.UpdateOneAsync(filter, update, updateOptions);
                 if (result.IsAcknowledged)
                 {
-                    return obj;
+                    return param;
+                }
+                else
+                    return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Notes Related - Below___
+        public async Task<Note> CreateNote(Note param)
+        {
+            try
+            {
+                var noteID = Guid.NewGuid().ToString();
+                param.noteID = noteID;
+                param.Detail.noteID = noteID;
+                foreach (var item in param.Contents)
+                {
+                    item.belongingID = noteID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = noteID;
+                    }
+                }
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.AddToSet(x => x.Notes, param);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<Note> UpdateNote(Note param)
+        {
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.Detail.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.Set("Notes.$[note]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("note.noteID", param.noteID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Companies.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+    
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Contacts Related - Below___
+        public async Task<Contact> CreateContact(Contact param)
+        {
+            try
+            {
+                var contactID = Guid.NewGuid().ToString();
+                param.contactID = contactID;
+                param.Detail.contactID = contactID;
+                param.Phone.contactID = contactID;
+                param.Email.contactID = contactID;
+                foreach (var item in param.Convo)
+                {
+                    item.belongingID = contactID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = contactID;
+                    }
+                }
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.AddToSet(x => x.Contacts, param);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<Contact> UpdateContact(Contact param)
+        {
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.Set("Contacts.$[contact]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("contact.contactID", param.contactID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Companies.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Follow Ups Related - Below___
+        public async Task<FollowUp> CreateFollowUp(FollowUp param)
+        {
+            try
+            {
+                var followUpID = Guid.NewGuid().ToString();
+                param.followUpID = followUpID;
+                param.Detail.followUpID = followUpID;
+                foreach (var item in param.Description)
+                {
+                    item.belongingID = followUpID;
+                    foreach (var content in item.Contents)
+                    {
+                        content.belongingID = followUpID;
+                    }
+                }
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.AddToSet(x => x.FollowUps, param);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<FollowUp> UpdateConvoHistory(FollowUp param)
+        {
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.Detail.companyID);
+                var update = Builders<Company>.Update.Set("FollowUps.$[followup]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("followup.followUpID", param.followUpID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Companies.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Checklists Related - Below___
+        public async Task<Checklist> CreateChecklist(Checklist param)
+        {
+            try
+            {
+                var checklistID = Guid.NewGuid().ToString();
+                param.checklistID = checklistID;
+                foreach (var item in param.Options)
+                {
+                    item.checklistID = checklistID;
+                }
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.companyID);
+                var update = Builders<Company>.Update.AddToSet(x => x.Checklists, param);
+                var result = await _Companies.UpdateOneAsync(filter, update);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public async Task<Checklist> UpdateChecklist(Checklist param)
+        {
+            try
+            {
+                var filter = Builders<Company>.Filter.Eq(x => x.companyID, param.companyID);
+                var update = Builders<Company>.Update.Set("Checklists.$[checklist]", param);
+                var arrayFilters = new List<ArrayFilterDefinition>();
+                ArrayFilterDefinition<BsonDocument> level1 = new BsonDocument("checklist.checklistID", param.checklistID);
+
+                arrayFilters.Add(level1);
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _Companies.UpdateOneAsync(filter, update, updateOptions);
+                if (result.IsAcknowledged)
+                {
+                    return param;
+                }
+                else
+                    return null;
+
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        //___________________________________________________________________________________
+        //
+        // Get Method Type Handlers - Below
+        //___________________________________________________________________________________
+
+        //___Companies Related - Below___
+        public async Task<List<Company>> GetCompanies(List<String> list)
+        {
+            try
+            {
+                List<Company> Companies = new List<Company>();
+                Companies = _Companies.Find<Company>(x => list.Contains(x.companyID)).ToList();
+                if (Companies != null)
+                    return Companies;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+
+        //___Events Related - Below___
+        public async Task<Event> GetEvent(string uID, string companyID, string eventID)
+        {
+            try
+            {
+                var company = _Companies.Find(x => x.companyID == companyID && x.Detail.uID == uID).FirstOrDefault();
+                if(company != null)
+                {
+                    var output = company.Events.Where(x => x.Detail.eventID == eventID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool EventSave(Event_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Set(x => x.Events.Where(x => x.eventID == model.Event.eventID).FirstOrDefault(), model.Event);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch(Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool EventDelete(Event_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Pull(x => x.Events, model.Event);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
-        public Note AddNote(Note_Request model)
-        {
-            if (model.Note != null)
-            {
-                Note obj = model.Note;
-                obj.noteID = Guid.NewGuid().ToString();
-                if (obj.Detail == null)
-                {
-                    obj.Detail = new Note_Detail();
-                }
-                if (obj.Contents == null)
-                {
-                    obj.Contents = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var add = Builders<Company>.Update.AddToSet(x => x.Notes, obj);
 
-                var result = _Companies.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
+        //___Notes Related - Below___
+        public async Task<Note> GetNotes(string uID, string companyID, string noteID)
+        {
+            try
+            {
+                var company = _Companies.Find(x => x.companyID == companyID && x.Detail.uID == uID).FirstOrDefault();
+                if (company != null)
                 {
-                    return obj;
+                    var output = company.Notes.Where(x => x.Detail.noteID == noteID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool NoteSave(Note_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Set(x => x.Notes.Where(x => x.noteID == model.Note.noteID).FirstOrDefault(), model.Note);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool NoteDelete(Note_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Pull(x => x.Notes, model.Note);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
 
-        public Contact AddContact(Contact_Request model)
+        //___Contacts Related - Below___
+        public async Task<Contact> GetContacts(string uID, string companyID, string contactID)
         {
-            if (model.Contact != null)
+            try
             {
-                Contact obj = model.Contact;
-                obj.contactID = Guid.NewGuid().ToString();
-                if (obj.PersonalDetail == null)
+                var company = _Companies.Find(x => x.companyID == companyID && x.Detail.uID == uID).FirstOrDefault();
+                if (company != null)
                 {
-                    obj.PersonalDetail = new Contact_Detail();
-                }
-                if (obj.Email == null)
-                {
-                    obj.Email = new Contact_Email();
-                }
-                if (obj.Phone == null)
-                {
-                    obj.Phone = new Contact_Phone();
-                }
-                if (obj.Convo == null)
-                {
-                    obj.Convo = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var add = Builders<Company>.Update.AddToSet(x => x.Contacts, obj);
-
-                var result = _Companies.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = company.Contacts.Where(x => x.Detail.contactID == contactID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool ContactSave(Contact_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Set(x => x.Contacts.Where(x => x.contactID == model.Contact.contactID).FirstOrDefault(), model.Contact);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-        public bool ContactDelete(Contact_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Pull(x => x.Contacts, model.Contact);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
-        public FollowUp AddFollowUp(FollowUp_Request model)
-        {
-            if (model.FollowUp != null)
-            {
-                FollowUp obj = model.FollowUp;
-                obj.followUpID = Guid.NewGuid().ToString();
-                if (obj.Personnel == null)
-                {
-                    obj.Personnel = new Contact_Detail();
-                }
-                if (obj.Description == null)
-                {
-                    obj.Description = new List<Contents_Sub>();
-                }
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var add = Builders<Company>.Update.AddToSet(x => x.FollowUps, obj);
 
-                var result = _Companies.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
+        //___Follow Ups Related - Below___
+        public async Task<FollowUp> GetFollowUp(string uID, string companyID, string followUpID)
+        {
+            try
+            {
+                var company = _Companies.Find(x => x.companyID == companyID && x.Detail.uID == uID).FirstOrDefault();
+                if (company != null)
                 {
-                    return obj;
+                    var output = company.FollowUps.Where(x => x.Detail.followUpID == followUpID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool FollowUpSave(FollowUp_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Set(x => x.FollowUps.Where(x => x.followUpID == model.FollowUp.followUpID).FirstOrDefault(), model.FollowUp);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
-        }
-
-        public bool FollowUpDelete(FollowUp_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Pull(x => x.FollowUps, model.FollowUp);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
         }
 
 
-        public Checklist AddChecklist(Checklist_Request model)
+        //___Checklists Related - Below___
+        public async Task<Checklist> GetChecklist(string uID, string companyID, string checklistID)
         {
-            if (model.Checklist != null)
+            try
             {
-                Checklist obj = model.Checklist;
-                obj.checklistID = Guid.NewGuid().ToString();
-                if (obj.Files == null)
+                var company = _Companies.Find(x => x.companyID == companyID && x.Detail.uID == uID).FirstOrDefault();
+                if (company != null)
                 {
-                    obj.Files = new List<File>();
-                }
-
-                var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-                var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-                var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-                var add = Builders<Company>.Update.AddToSet(x => x.Checklists, obj);
-
-                var result = _Companies.UpdateOne(filter, add);
-                if (result.IsAcknowledged)
-                {
-                    return obj;
+                    var output = company.Checklists.Where(x => x.checklistID == checklistID).FirstOrDefault();
+                    return output;
                 }
                 return null;
             }
-            return null;
-        }
-        public bool ChecklistSave(Checklist_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Set(x => x.Checklists.Where(x => x.checklistID == model.Checklist.checklistID).FirstOrDefault(), model.Checklist);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
+            catch (Exception ex)
             {
-                return true;
+                return null;
             }
-            return false;
         }
 
-        public bool ChecklistDelete(Checklist_Request model)
-        {
-            var filter_1 = Builders<Company>.Filter.Eq(x => x.companyID, model.correspondenceID);
-            var filter_2 = Builders<Company>.Filter.Eq(x => x.uID, model.uID);
-            var filter = Builders<Company>.Filter.And(filter_1, filter_2);
-            var update = Builders<Company>.Update.Pull(x => x.Checklists, model.Checklist);
-
-            var result = _Companies.UpdateOne(filter, update);
-            if (result.IsAcknowledged)
-            {
-                return true;
-            }
-            return false;
-        }
     }
 }
